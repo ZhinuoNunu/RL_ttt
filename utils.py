@@ -7,8 +7,69 @@ from collections import deque
 import random
 import matplotlib.pyplot as plt
 from collections import defaultdict
-
+import os
+import imageio
 from model import StabilizedDuelingDQN
+
+
+def visualize_game_animation(game_record, filename='game_animation.gif'):
+    images = []
+    
+    for move_idx, move in enumerate(game_record['moves']):
+        board = np.array(move['board'])
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.set_facecolor('white')
+        
+        # 绘制棋盘结构
+        for i in range(12):
+            for j in range(12):
+                # 只绘制有效区域（十字形）
+                if board[i][j] != -1:
+                    # 绘制棋盘格子
+                    rect = plt.Rectangle((j-0.5, i-0.5), 1, 1, 
+                                      fill=False, ec='black', lw=0.8)
+                    ax.add_patch(rect)
+                    
+                    # 绘制棋子
+                    if board[i][j] == 1:  # 圆圈（Player 1）
+                        circle = plt.Circle((j, i), 0.35,
+                                         ec='blue', lw=3, fill=False)
+                        ax.add_patch(circle)
+                    elif board[i][j] == 2:  # 叉号（Player 2）
+                        ax.plot([j-0.3, j+0.3], [i-0.3, i+0.3], 
+                              'r-', lw=3)
+                        ax.plot([j-0.3, j+0.3], [i+0.3, i-0.3], 
+                              'r-', lw=3)
+
+        # 设置坐标轴范围和样式
+        ax.set_xlim(-0.5, 11.5)
+        ax.set_ylim(11.5, -0.5)  # 反转Y轴
+        ax.set_aspect('equal')
+        ax.axis('off')
+        
+        # 高亮当前落子位置
+        current_action = move['action']
+        if current_action:
+            ay, ax_pos = current_action  # 注意坐标顺序转换
+            highlight = plt.Rectangle((ax_pos-0.5, ay-0.5), 1, 1,
+                                    fill=False, ec='gold', lw=3)
+            ax.add_patch(highlight)
+        
+        # 添加标题信息
+        title_text = f"Move {move_idx+1}\nPlayer {move['player']} at {current_action}"
+        plt.title(title_text, fontsize=12, pad=20)
+        
+        # 保存临时图片
+        temp_file = f"temp_{move_idx}.png"
+        plt.savefig(temp_file, bbox_inches='tight', dpi=100)
+        plt.close()
+        images.append(imageio.imread(temp_file))
+        os.remove(temp_file)
+    
+    # 生成GIF
+    imageio.mimsave(filename, images, duration=1)
+    print(f"Saved game animation to {filename}")
+
 
 # 加载训练好的模型
 def load_model(model_path):

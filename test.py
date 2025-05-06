@@ -8,7 +8,7 @@ from collections import deque
 import random
 import matplotlib.pyplot as plt
 
-from utils import load_model, random_policy, greedy_policy, coord_to_action
+from utils import load_model, random_policy, greedy_policy, coord_to_action, visualize_game_animation
 from model import StabilizedDuelingDQN, ReplayBuffer
 from env import CrossTicTacToe
 
@@ -77,6 +77,9 @@ def run_tests(model_path="cross_tictactoe_dqn_reward_old.pth"):
     print("\n=== Testing AI vs Greedy Policy ===")
     greedy_results, greedy_game = test_ai_performance(ai_model, greedy_policy)
     print(f"Win: {greedy_results['win']}%, Lose: {greedy_results['lose']}%, Draw: {greedy_results['draw']}%")
+    
+    visualize_game_animation(random_game[0], 'ai_vs_random.gif')
+    visualize_game_animation(greedy_game[0], 'ai_vs_greedy.gif')
     
     # 保存对局记录
     import json
