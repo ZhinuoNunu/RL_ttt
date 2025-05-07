@@ -1,21 +1,26 @@
-# RL_ttt
+## Code Implement
 
-## 训练
-
+checkpoints can be downloaded in https://drive.google.com/drive/folders/1pgTkoPjANQoqqUILBitOKMJlXkJ121Ol?usp=sharing
 ```
-python train_with_test.py
-```
+# train
+python train_ppo.py --episodes 5000
 
-训练结果见：
-
-training_results_xxx.png
-
-## 测试
-
-```
-python test.py
+# test
+python test_ppo.py
 ```
 
-测试结果见：
+## Training results
 
-ai_vs_xxx.gif
+<img src="./output/ppo_training_metrics.png" alt="ppo_training_metrics" style="zoom: 50%;" />
+
+## Test results
+
+### random policy
+
+<img src="./output/vs_random.gif" alt="test" style="zoom:50%;" />
+
+
+
+### Greedy policy
+
+<img src="./output/vs_greedy.gif" alt="test" style="zoom:50%;" />

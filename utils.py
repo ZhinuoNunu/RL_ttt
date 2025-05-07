@@ -12,72 +12,6 @@ import imageio
 from model import StabilizedDuelingDQN
 
 
-def visualize_game_animation(game_record, filename='game_animation.gif'):
-    images = []
-    
-    for move_idx, move in enumerate(game_record['moves']):
-        board = np.array(move['board'])
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.set_facecolor('white')
-        
-        # 绘制棋盘结构
-        for i in range(12):
-            for j in range(12):
-                # 只绘制有效区域（十字形）
-                if board[i][j] != -1:
-                    # 绘制棋盘格子
-                    rect = plt.Rectangle((j-0.5, i-0.5), 1, 1, 
-                                      fill=False, ec='black', lw=0.8)
-                    ax.add_patch(rect)
-                    
-                    # 绘制棋子
-                    if board[i][j] == 1:  # 圆圈（Player 1）
-                        circle = plt.Circle((j, i), 0.35,
-                                         ec='blue', lw=3, fill=False)
-                        ax.add_patch(circle)
-                    elif board[i][j] == 2:  # 叉号（Player 2）
-                        ax.plot([j-0.3, j+0.3], [i-0.3, i+0.3], 
-                              'r-', lw=3)
-                        ax.plot([j-0.3, j+0.3], [i+0.3, i-0.3], 
-                              'r-', lw=3)
-
-        # 设置坐标轴范围和样式
-        ax.set_xlim(-0.5, 11.5)
-        ax.set_ylim(11.5, -0.5)  # 反转Y轴
-        ax.set_aspect('equal')
-        ax.axis('off')
-        
-        # 高亮当前落子位置
-        current_action = move['action']
-        if current_action:
-            ay, ax_pos = current_action  # 注意坐标顺序转换
-            highlight = plt.Rectangle((ax_pos-0.5, ay-0.5), 1, 1,
-                                    fill=False, ec='gold', lw=3)
-            ax.add_patch(highlight)
-        
-        # 添加标题信息
-        title_text = f"Move {move_idx+1}\nPlayer {move['player']} at {current_action}"
-        plt.title(title_text, fontsize=12, pad=20)
-        
-        # 保存临时图片
-        temp_file = f"temp_{move_idx}.png"
-        plt.savefig(temp_file, bbox_inches='tight', dpi=100)
-        plt.close()
-        images.append(imageio.imread(temp_file))
-        os.remove(temp_file)
-    
-    # 生成GIF
-    imageio.mimsave(filename, images, duration=1)
-    print(f"Saved game animation to {filename}")
-
-
-# 加载训练好的模型
-def load_model(model_path):
-    model = StabilizedDuelingDQN()
-    model.load_state_dict(torch.load(model_path))
-    model.eval()
-    return model
-
 
 # 贪心策略（规则基础AI）
 def greedy_policy(env):
@@ -97,17 +31,147 @@ def random_policy(env):
     return random.choice(valid_actions) if valid_actions else None
 
 
-# 坐标与动作编号转换
-def coord_to_action(r, c):
-    if 0 <= r < 4 and 4 <= c < 8:   # Top
-        return (r) * 4 + (c-4)
-    elif 8 <= r < 12 and 4 <= c < 8: # Bottom
-        return 16 + (r-8)*4 + (c-4)
-    elif 4 <= r < 8 and 0 <= c < 4:  # Left
-        return 32 + (r-4)*4 + c
-    elif 4 <= r < 8 and 8 <= c < 12: # Right
-        return 48 + (r-4)*4 + (c-8)
-    elif 4 <= r < 8 and 4 <= c < 8:  # Center
-        return 64 + (r-4)*4 + (c-4)
-    else:
-        return None
+    
+    
+# reward shaper: enhance the sparse reward signal of board games
+class RewardShaper:
+    def __init__(self, env):
+        self.env = env
+        self.board_size = env.board_size
+        # board center coordinates
+        self.center_r, self.center_c = self.board_size // 2, self.board_size // 2
+        
+    def shape_reward(self, state, action, next_state, done, reward, player):
+        """enhance the reward signal based on the game state"""
+        if done and reward != 0:  # game over and there is a winner
+            # keep the reward unchanged
+            return reward
+        
+        # base reward
+        shaped_reward = reward
+        
+        # 1. position value reward - more important for center and key positions
+        r, c = action
+        position_value = self._position_value(r, c)
+        
+        # 2. connection potential evaluation
+        connection_value = self._evaluate_connection(next_state, action, player)
+        
+        # 3. blocking potential evaluation
+        blocking_value = self._evaluate_blocking(next_state, action, player)
+        
+        # 4. area control evaluation
+        control_value = self._evaluate_area_control(next_state, player)
+        
+        # combine the rewards
+        shaped_reward += (
+            0.01 * position_value +  # position value
+            0.03 * connection_value +  # connection potential
+            0.02 * blocking_value +  # blocking potential
+            0.01 * control_value  # area control
+        )
+        
+        # adjust the reward based on the player
+        if player == 2:  # opponent
+            shaped_reward = -shaped_reward
+            
+        return shaped_reward
+    
+    def _position_value(self, r, c):
+        """calculate the strategic value of the position, the center position has higher value"""
+        # calculate the distance to the center
+        distance_to_center = np.sqrt((r - self.center_r)**2 + (c - self.center_c)**2)
+        # the closer to the center, the higher the value, use a non-linear transformation
+        return max(0, 1.0 - (distance_to_center / (self.board_size/2)))
+    
+    def _evaluate_connection(self, board, action, player):
+        """evaluate the potential of connecting pieces after the move"""
+        r, c = action
+        directions = [(0,1), (1,0), (1,1), (1,-1)]  # horizontal, vertical, main diagonal, anti-diagonal
+        max_connection = 0
+        
+        for dr, dc in directions:
+            # calculate the number of consecutive pieces in the current direction
+            count = 1  # current position
+            # check in the forward direction
+            for i in range(1, 5):  # check up to 4 steps
+                nr, nc = r + i*dr, c + i*dc
+                if 0 <= nr < self.board_size and 0 <= nc < self.board_size and board[nr, nc] == player:
+                    count += 1
+                else:
+                    break
+            # check in the reverse direction
+            for i in range(1, 5):
+                nr, nc = r - i*dr, c - i*dc
+                if 0 <= nr < self.board_size and 0 <= nc < self.board_size and board[nr, nc] == player:
+                    count += 1
+                else:
+                    break
+            
+            # update the maximum number of connections
+            max_connection = max(max_connection, count)
+        
+        # map the number of connections to the reward value
+        connection_rewards = {
+            1: 0.0,   # single block
+            2: 0.2,   # two in a row
+            3: 0.6,   # three in a row
+            4: 1.0    # four in a row/five in a row
+        }
+        return connection_rewards.get(min(max_connection, 4), 0.0)
+    
+    def _evaluate_blocking(self, board, action, player):
+        """evaluate the value of blocking the opponent's connections"""
+        r, c = action
+        opponent = 3 - player
+        
+        # temporarily set the current position to the opponent's piece to evaluate the opponent's connection potential
+        temp_board = board.copy()
+        temp_board[r, c] = opponent
+        
+        directions = [(0,1), (1,0), (1,1), (1,-1)]
+        max_blocked = 0
+        
+        for dr, dc in directions:
+            # calculate the number of connections the opponent could form in this position
+            count = 1
+            # check in the forward direction
+            for i in range(1, 5):
+                nr, nc = r + i*dr, c + i*dc
+                if 0 <= nr < self.board_size and 0 <= nc < self.board_size and temp_board[nr, nc] == opponent:
+                    count += 1
+                else:
+                    break
+            # check in the reverse direction
+            for i in range(1, 5):
+                nr, nc = r - i*dr, c - i*dc
+                if 0 <= nr < self.board_size and 0 <= nc < self.board_size and temp_board[nr, nc] == opponent:
+                    count += 1
+                else:
+                    break
+            
+            max_blocked = max(max_blocked, count)
+        
+        # map the number of blocked connections to the reward value, blocking more connections has higher rewards
+        blocking_rewards = {
+            1: 0.0,   # single block
+            2: 0.1,   # block two in a row
+            3: 0.5,   # block three in a row
+            4: 0.9    # block four in a row/five in a row
+        }
+        return blocking_rewards.get(min(max_blocked, 4), 0.0)
+    
+    def _evaluate_area_control(self, board, player):
+        """evaluate the control of the key regions"""
+        # calculate the difference in the number of pieces in each region
+        control_score = 0
+        
+        # center region control
+        center_region = board[4:8, 4:8]
+        player_count = np.sum(center_region == player)
+        opponent_count = np.sum(center_region == 3 - player)
+        
+        # region control score based on the difference between the player and the opponent
+        control_score = 0.2 * (player_count - opponent_count) / 16  # normalize
+        
+        return max(-1.0, min(1.0, control_score))  # limit the score to [-1,1]
