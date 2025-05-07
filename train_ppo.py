@@ -214,6 +214,8 @@ class PPOAgent:
                 total_loss.backward()
                 nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.optimizer.step()
+                
+                
             
             # calculate the average KL divergence for each epoch
             mean_approx_kl = np.mean(approx_kl_divs) if approx_kl_divs else 0
@@ -335,6 +337,7 @@ def train_ppo(env, episodes=1000, resume=False, checkpoint_path=None, use_reward
             'original_rewards': []  # record the original reward
         }
         all_rewards = []
+        all_losses = []
         best_win_rate = -1.0
     
     win_rates = []
@@ -373,6 +376,7 @@ def train_ppo(env, episodes=1000, resume=False, checkpoint_path=None, use_reward
         state = env.reset()
         episode_rewards = []
         total_reward = 0
+        total_losses = 0
         done = False
         
         while not done:
@@ -396,6 +400,7 @@ def train_ppo(env, episodes=1000, resume=False, checkpoint_path=None, use_reward
             episode_rewards.append(reward)
             total_reward += reward
             
+            
             # store the shaped reward in the buffer
             agent.store_transition((
                 state, action_idx, log_prob.item(), reward, done, value.item()
@@ -411,11 +416,14 @@ def train_ppo(env, episodes=1000, resume=False, checkpoint_path=None, use_reward
                 episode_rewards = []
                 # record training metrics
                 if agent.loss_history['actor'] and agent.loss_history['critic']:
+                    total_losses += agent.loss_history['total'][-1]
                     metrics['policy_losses'].append(agent.loss_history['actor'][-1])
                     metrics['value_losses'].append(agent.loss_history['critic'][-1])
                     metrics['entropies'].append(agent.loss_history['entropy'][-1])
         
         all_rewards.append(total_reward)
+        if total_losses > 0:
+            all_losses.append(total_losses/(ep+1))
         
         if ep % 10 == 0 and use_reward_shaping:
             metrics['shaped_rewards'].append(total_reward)
@@ -519,10 +527,11 @@ def train_ppo(env, episodes=1000, resume=False, checkpoint_path=None, use_reward
 
     # loss curve
     plt.subplot(2, 2, 1)
-    loss_keys = ['critic']
-    colors = [TECH_RED, TECH_BLUE, TECH_ORANGE]
-    for i in range(len(loss_keys)):
-        plt.plot(agent.loss_history[loss_keys[i]], label=loss_keys[i], color=colors[i], linestyle='-', linewidth=0.5)
+    # loss_keys = ['total']
+    # colors = [TECH_RED, TECH_BLUE, TECH_ORANGE]
+    # for i in range(len(loss_keys)):
+    #     plt.plot(agent.loss_history[loss_keys[i]], label=loss_keys[i], color=colors[i], linestyle='-', linewidth=0.5)
+    plt.plot(all_losses[1:], label='total', color=TECH_RED, linestyle='-', linewidth=0.5)
     plt.xlabel('Training Steps')
     plt.ylabel('Loss')
     plt.title('Training Losses')
