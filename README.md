@@ -45,7 +45,7 @@ python test_ppo.py
 
 ## Training results
 
-<img src="./output/ppo_training_metrics.png" alt="ppo_training_metrics" style="zoom: 50%;" />
+<img src="./output/ppo_training_metrics.png" alt="training_metrics" style="zoom: 50%;" />
 The figure above illustrates the training metrics of our PPO agent. The training curves demonstrate steady performance improvement as the number of training iterations increases. Key observations include:
 
 - Training Loss: As training progresses, the loss values show an overall downward trend, indicating gradual convergence of model parameters. The fluctuations reflect the inherent exploration process characteristic of reinforcement learning.
