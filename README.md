@@ -1,36 +1,17 @@
 # Tic-Tac-Toe Assignment for Reinforcement Learning
 HKUST MSBD6000M course project for the Tic-Tac-Toe Assignment in Reinforcement Learning
 ## Introduction
-This project implements an AI agent for Tic-Tac-Toe based on reinforcement learning techniques, specifically utilizing the Proximal Policy Optimization (PPO) algorithm - a state-of-the-art policy gradient method in modern reinforcement learning. The primary objective of this research is to develop and train a high-performing AI agent capable of exhibiting superior gameplay in the CrossTicTacToe variant.
+This project implements a reinforcement learning system based on the Proximal Policy Optimization (PPO) algorithm, aimed at training AI agents that excel in the Cross Tic-Tac-Toe game. As a variant of the classic two-player zero-sum game, Cross Tic-Tac-Toe provides an ideal environment to demonstrate the application of reinforcement learning algorithms in strategic decision-making.
 
-### Game Environment
-The game environment is designed as a 12×12 board where only specific regions are designated as valid placement areas: top, bottom, left, right, and center regions.
+The game is played on a 12×12 board, where players take turns placing pieces within specific valid areas. Victory is achieved by connecting 4 pieces horizontally or vertically, or 5 pieces diagonally. This environment is constructed as a Markov Decision Process (MDP), where the agent optimizes its decision-making strategy through interaction with the environment.
 
-The game follows these rules:
+The main contributions of this project include:
 
-- Players take turns placing their pieces on the board
-- Victory is achieved by connecting 4 pieces horizontally or vertically, or 5 pieces diagonally
-### Training Framework
-The environment is formulated as a Markov Decision Process (MDP):
-
-- States represent the current board configuration
-- Actions correspond to piece placement in valid positions
-- Reward structure: +1 for winning, -1 for losing
-- A small penalty of -0.01 is applied per action to incentivize faster victories
-### Algorithm Architecture
-We implemented the PPO reinforcement learning algorithm with the following components:
-
-- Convolutional neural networks for processing board state representations
-- A PPONet utilizing an Actor-Critic architecture comprising both policy and value networks
-- Experience replay buffer for storing and sampling training data
-- Entropy regularization to promote policy exploration
-- Proximal policy updates to prevent excessive policy shifts during training iterations
-### Evaluation
-The agent's performance is evaluated through:
-
-- Competitive gameplay against both random and greedy baseline strategies
-- Tracking of loss functions and KL-divergence measures, demonstrating the characteristic bow-shaped learning curve
-- Visualization of gameplay progression and decision-making processes
+- Training a Tic-Tac-Toe agent using the PPO algorithm, which combines policy gradient methods and value function approximation
+- Designing specific reward shaping mechanisms to enhance learning efficiency
+- Implementing policy and value networks based on convolutional neural networks
+- Providing performance evaluations against benchmark opponents using random and greedy strategies
+The project structure is divided into four main components: environment definition (env.py), model design (model.py), training implementation (train_ppo.py), and testing evaluation (test_ppo.py). Through systematic training and evaluation, this project demonstrates the potential applications of reinforcement learning in strategic games.
 
 ## Code Implement
 
@@ -45,13 +26,19 @@ python test_ppo.py
 
 ## Training results
 
-<img src="./output/ppo_training_metrics.png" alt="ppo_training_metrics" style="zoom: 50%;" />
+<img src="./output/ppo_training_metrics.png" alt="training_metrics" style="zoom: 50%;" />
 The figure above illustrates the training metrics of our PPO agent. The training curves demonstrate steady performance improvement as the number of training iterations increases. Key observations include:
 
-- Training Loss: As training progresses, the loss values show an overall downward trend, indicating gradual convergence of model parameters. The fluctuations reflect the inherent exploration process characteristic of reinforcement learning.
-- Policy Entropy: The initially high entropy values indicate that the agent is exploring a wide range of possible actions. As training advances, entropy gradually decreases, suggesting that the policy becomes more deterministic and focuses on effective strategies.
-- Episode Reward: The reward curve shows an upward trend, demonstrating that the agent progressively learns strategies that yield higher returns. The growth in rewards indicates continuous improvement in the agent's game performance.
-- Win Rate: The win rate curve exhibits an upward trajectory, confirming that the agent has learned effective gameplay strategies.
+- **Training Loss**: The training loss curve demonstrates a typical PPO training pattern of "initial volatility followed by gradual stabilization." Specifically, in the initial phase, loss values are high with significant fluctuations and pronounced oscillations. During the middle phase, the trend shifts downward with reduced yet rhythmic fluctuations. In the later phase, loss values maintain a relatively low and stable level with minimal variations. This pattern is expected as PPO's total loss comprises policy loss, value loss, and entropy regularization components, with learning rate decay implemented every 200 rounds in the code. This behavior aligns with theoretical expectations for PPO algorithms, indicating that the training process successfully balanced exploration and exploitation before converging to an effective policy.
+- **Policy Entropy**: The entropy trend follows a pattern of initially high values, followed by a decrease, and then a gradual increase while remaining below initial values. This reflects three distinct phases of policy learning, consistent with typical PPO training trajectories:
+    - Initial high-entropy phase: When training begins, the policy is random with action probabilities approaching a uniform distribution, resulting in high entropy values.
+    - Rapid decline phase: As learning progresses, the model develops preferences for certain actions, concentrating the distribution and causing entropy to decrease quickly.
+    - Gradual rise phase: When the model identifies states requiring additional exploration, it appropriately increases entropy, though typically not returning to initial random levels.
+    - The entropy settling below its initial value while maintaining a certain level is ideal, indicating that the model has achieved a balance between deterministic decision-making and appropriate exploratory capacity.
+- **Episode Reward**: The relatively stable reward curve can be attributed to:
+    - Reward Shaping Mechanism: The project employs a sophisticated RewardShaper class to enhance the original reward signals, taking into account multiple factors including positional value, connection potential, blocking potential, and regional control.
+    - Stable Policy Performance: The policy learned by the agent tends to stabilize in the later stages of training, resulting in a balanced distribution of shaped rewards.
+- **Win Rate**: The win rate curve exhibits an upward trajectory, confirming that the agent has learned effective gameplay strategies.
 
 Through approximately 5,000 training iterations, the agent successfully acquired effective strategies for the CrossTicTacToe game and demonstrates the ability to defeat baseline opponent strategies.
 
@@ -68,3 +55,7 @@ The GIF above demonstrates our PPO agent competing against an opponent using a r
 
 <img src="./output/vs_greedy.gif" alt="test" style="zoom:50%;" />
 This demonstration showcases the PPO agent competing against an opponent using a greedy strategy. The greedy strategy prioritizes positions that lead to immediate victory or blocks the opponent from winning, thus presenting a significantly more challenging adversary than a random policy. Even when facing such a sophisticated opponent, our agent demonstrates excellent strategic thinking, anticipating the opponent's moves to set up traps and secure victories.
+
+
+
+
